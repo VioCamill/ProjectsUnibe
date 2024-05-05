@@ -1,6 +1,6 @@
 # Data Since Assignment 
-The assignments were hended out in a group of two people. 
-My Contributions: 
+The tasks were part of the lecture Programming for Data Science and were completed with an other student.<br>
+My contributions: 
 ### Assignment 1: 
 - Exercice 1, 2, 3
 ### Assignment 2: 
