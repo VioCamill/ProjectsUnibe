@@ -1,0 +1,10 @@
+Fille explaining coverage: 
+
+
+Player: Methode toString and position not covered, because they are trivial getter methodes, swap is unused.
+
+Game: nextPlayer unused, toString not used, because it is a trivial getter methode.
+
+FirstSquare: setList and toString not used, because they are trivial getter methodes.
+
+

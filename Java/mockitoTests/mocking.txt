@@ -1,0 +1,5 @@
+Having now used both versions of mocking, once with Mockito and once with a self created class, several differences are obvious. 
+
+When using mockito, one can directly take over the behavior of a class, letting it return certain elements that are needed to run the test successfully. It can be used on a very broad spectrum. On the other hand, creating our own class specifically designed to test another class or method is naturally more time-consuming, but can be very beneficial, as you can design it specifically towards your needs. 
+
+For general test I personally would probably prefer mocktail, as it is relatively simple to use, has a wide array of functions and especially for larger classes it is far easier to use. On the other hand, creating our own mock class can be better, especially if we found a bug that we can not explain directly. The creation of our own class allows us to better understand what exactly is happening.
