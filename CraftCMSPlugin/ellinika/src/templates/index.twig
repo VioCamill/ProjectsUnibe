@@ -1,0 +1,307 @@
+
+{% extends "_layouts/cp" %}
+
+{% set title = "Events" %}
+
+{% block head %}
+    {{ parent() }}
+    <style>
+        /* Container styles for responsive table display */
+        .table-container {
+            width: 100%;
+            margin: auto;
+            padding: 0px;
+            overflow-x: auto;
+        }
+    
+        /* Standard full-width table with collapsed borders */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+    
+        /* Table headers and cells with consistent text alignment and spacing */
+        th, td {
+            text-align: left;
+            padding: 5px;
+            border: 1px solid #ddd;
+            vertical-align: middle;
+            word-wrap: break-word;
+        }
+    
+        /* Text cell styling with constrained width, hidden overflow, and transition effects */
+        .text-cell {
+            min-width: 300px;
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap; 
+            transition: border-color 0.3s;
+        }
+
+        /* Hover effect for text cells to emphasize interaction */
+        .text-cell:hover {
+            border: 2px solid blue;
+        }
+
+        /* Styling for link-styled buttons with dynamic background transition */
+        .url-cell a.url-button {
+            display: inline-block;
+            padding: 6px 12px;
+            background-color: #007bff;
+            color: white;
+            text-align: center;
+            border-radius: 4px;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+        }
+        
+        /* Hover and focus states for link buttons, changing background color */
+        .url-cell a.url-button:hover, .url-cell a.url-button:focus {
+            background-color: #0056b3;
+            text-decoration: none;
+        }
+        
+        /* Basic button styling with size and font adjustments */
+        button.btn {
+            padding: 4px 8px;
+            font-size: 0.875rem;
+        }
+    
+        /* Hidden modal elements styled for centering and overlay display */
+        .edit-modal, .view-modal {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            z-index: 1050;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        /* Modal content boxes styled for visual appeal and user interaction */
+        .edit-modal-content, .view-modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: auto;
+            max-width: 1600px;
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        /* Close button styles indicating interactive elements with hover and focus states */
+        .edit-close, .view-close {
+            color: #aaa;
+            align-self: flex-end;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0 0 10px 10px;
+        }
+        
+        .edit-close:hover, .view-close:hover,
+        .edit-close:focus, .view-close:focus {
+            color: black;
+            text-decoration: none;
+        }
+    </style>
+{% endblock %}
+
+
+{% block content %}
+    {% if entries is not empty %}
+        <!-- Creates a table to display entry details if entries exist -->
+        <table>
+            <thead>
+                <tr>
+                    <th>Entry ID</th>
+                    <th>Text</th>
+                    <th>Changed</th>
+                    <th>Unchanged</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry_id, data in entries %}
+                    <tr>
+                        <td>{{ entry_id }}</td>
+                        <td class="text-cell">
+                            <!-- Displays text and attaches a click event for viewing details -->
+                            <span onclick="viewEntry('{{ data.text | escape('js') }}');">{{ data.text }}</span>
+                        </td>
+                        <td>
+                            <!-- Renders forms for each language that has changed -->
+                            {% for language_id in data.changedLanguages %}
+                                <form action="{{ url('actions/ellinika/entry/update-text') }}" method="POST">
+                                    {{ csrfInput() }}
+                                    <input type="hidden" name="entryId" value="{{ entry_id }}">
+                                    <div>
+                                        <input type="radio" id="changed-lang-{{ entry_id }}-{{ language_id }}"
+                                               name="selectedLanguage" value="{{ language_id }}"
+                                               onchange="this.form.submit()">
+                                        <label for="changed-lang-{{ entry_id }}-{{ language_id }}">
+                                            {{ craft.app.sites.getSiteById(language_id).language }}
+                                        </label>
+                                    </div>
+                                </form>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <!-- Displays radio buttons for languages that have not changed -->
+                            {% for language_id in data.unchangedLanguages %}
+                                <div>
+                                    <input type="radio" id="lang-{{ entry_id }}-{{ language_id }}" name="selected_language_{{ entry_id }}" value="{{ language_id }}">
+                                    <label for="lang-{{ entry_id }}-{{ language_id }}">
+                                        {{ craft.app.sites.getSiteById(language_id).language }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <!-- Button to open the edit modal -->
+                            <button type="button" onclick="openDualViewEditModal({{ entry_id }})" class="btn" aria-label="Edit entry" style="border: none; background: none; cursor: pointer;">
+                                📝 Edit
+                            </button>
+                        
+                            <!-- Button to delete an entry -->
+                            <form method="post" action="{{ url('actions/ellinika/ellinika/delete-entry') }}">
+                                {{ csrfInput() }}
+                                <input type="hidden" name="action" value="ellinika/ellinika/delete-entry">
+                                <input type="hidden" name="entryId" value="{{ entry_id }}">
+                                <button type="submit" class="btn" aria-label="Delete entry" style="border: none; background: none; cursor: pointer;">
+                                    🗑️ Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <!-- Displays an empty table with a message when no entries are available -->
+        <table>
+            <thead>
+                <tr>
+                    <th>Entry ID</th>
+                    <th>Text</th>
+                    <th>Unchanged</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="4" style="text-align: center;">No data available</td>
+                </tr>
+            </tbody>
+        </table>
+    {% endif %}
+
+
+<!-- Dual View Edit Entry Modal -->
+<div id="dualViewEditModal" class="edit-modal">
+    <div class="edit-modal-content" style="width: 80%;">
+        <!-- Close button for the modal -->
+        <span class="edit-close">&times;</span>
+        <h3>Edit Entry</h3>
+        <div style="display: flex; height: 400px;">
+            <!-- Left side: Displaying original text -->
+            <div style="flex: 1; overflow-y: auto; margin-right: 20px;">
+                <h4>Original Text</h4>
+                <div id="originalText" style="background: #eee; padding: 10px; overflow-y: auto; height: 100%;">
+                    <!-- Placeholder where original text is displayed -->
+                </div>
+            </div>
+            <!-- Right side: Textarea for editing unchanged language text -->
+            <div style="flex: 1; overflow-y: auto;">
+                <h4>Unchanged Language Text</h4>
+                <textarea id="unchangedLanguageText" rows="20" style="width: 100%;">
+                    <!-- Placeholder where editable text for unchanged language is entered -->
+                </textarea>
+            </div>
+        </div>
+        <!-- Button to submit changes -->
+        <button onclick="saveChanges()" class="btn btn-primary">Save Changes</button>
+    </div>
+</div>
+
+<script>
+    // Access modal and close button elements
+    var dualViewEditModal = document.getElementById('dualViewEditModal');
+    var editCloseButton = dualViewEditModal.querySelector('.edit-close');
+
+    // Function to hide modal on close button click
+    editCloseButton.onclick = function() {
+        dualViewEditModal.style.display = "none";
+    };
+
+    // Function to hide modal when clicking outside its content
+    window.onclick = function(event) {
+        if (event.target == dualViewEditModal) {
+            dualViewEditModal.style.display = "none";
+        }
+    };
+
+    // Opens the modal for editing and fills it with selected entry details
+    function openDualViewEditModal(entryId) {
+        var selectedLanguageId = document.querySelector(`input[name='selected_language_${entryId}']:checked`)?.value;
+        if (!selectedLanguageId) {
+            alert('Please select a language.');
+            return;
+        }
+
+        // Simulated placeholder texts for demo; normally fetch from server
+        document.getElementById('originalText').innerText = 'Original text here...';
+        document.getElementById('unchangedLanguageText').value = 'Editable unchanged language text here...';
+
+        dualViewEditModal.style.display = 'block';
+    }
+
+    // Placeholder for future save functionality
+    function saveChanges() {
+        alert('Save functionality not implemented yet.');
+    }
+</script>
+
+<!-- View Entry Modal -->
+<div id="viewEntryModal" class="view-modal">
+    <div class="view-modal-content">
+        <!-- Close button for the view modal -->
+        <span class="view-close">&times;</span>
+        <h3>View Entry</h3>
+        <p id="viewText"></p>
+    </div>
+</div>
+
+<script>
+    // Access view modal and close button
+    var viewModal = document.getElementById('viewEntryModal');
+    var viewCloseButton = document.querySelector('.view-close');
+
+    // Opens modal to display selected entry text
+    function viewEntry(text) {
+        document.getElementById('viewText').textContent = text;
+        viewModal.style.display = "block";
+    }
+
+    // Function to hide view modal on close button click
+    viewCloseButton.onclick = function() {
+        viewModal.style.display = "none";
+    };
+
+    // Hide modal when clicking outside of it
+    window.onclick = function(event) {
+        if (event.target === viewModal) {
+            viewModal.style.display = "none";
+        }
+    };
+</script>
+{% endblock %}

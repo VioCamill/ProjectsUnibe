@@ -1,0 +1,41 @@
+{
+    "name": "pse/craft-ellinika",
+    "description": "Handle content in different languages",
+    "type": "craft-plugin",
+    "license": "mit",
+    "require": {
+        "php": ">=8.0.2",
+        "craftcms/cms": "^5.0.0"
+    },
+    "require-dev": {
+        "craftcms/ecs": "dev-main",
+        "craftcms/phpstan": "dev-main",
+        "phpunit/phpunit": "^9.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "pse\\craftellinika\\": "src/"
+        }
+    },
+    "extra": {
+        "handle": "ellinika",
+        "name": "Ellinika",
+        "developer": "pse24",
+        "documentationUrl": ""
+    },
+    "scripts": {
+        "check-cs": "ecs check --ansi",
+        "fix-cs": "ecs check --ansi --fix",
+        "phpstan": "phpstan --memory-limit=1G"
+    },
+    "config": {
+        "sort-packages": true,
+        "platform": {
+            "php": "8.2"
+        },
+        "allow-plugins": {
+            "yiisoft/yii2-composer": true,
+            "craftcms/plugin-installer": true
+        }
+    }
+}

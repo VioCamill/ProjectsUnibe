@@ -1,0 +1,15 @@
+{# @var plugin \pse\craftellinika\Plugin #}
+{# @var settings \pse\craftellinika\models\Settings #}
+
+{% import '_includes/forms.twig' as forms %}
+
+<h1>Settings for Ellinika</h1>
+
+<label for="time">Time, until the translation is marked as forgotten:</label></br>
+<input type="text" id="time" name="settings_time_until_forgotten" placeholder="Enter time">
+
+<select id="unit" name="unit">
+  <option value="h">hours</option>
+  <option value="d">days</option>
+  <option value="m">months</option>
+</select>
