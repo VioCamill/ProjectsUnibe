@@ -1,15 +1,166 @@
-{# @var plugin \pse\craftellinika\Plugin #}
-{# @var settings \pse\craftellinika\models\Settings #}
+{# Begin Styles for Settings Page #}
+<style>
+    /* Base container styles for settings */
+    #ellinika-settings {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        padding: 20px;
+    }
+    
+    /* Standard color for headers and labels within the settings container */
+    #ellinika-settings h1,
+    #ellinika-settings label {
+        color: #333;
+    }
+    
+    /* Styles for form elements, providing a consistent background, padding, and shadow */
+    #ellinika-settings form {
+        background-color: #f9f9f9;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        max-width: 100%;
+    }
+    
+    /* Specific styles for number input fields to adjust size, margins, and border details */
+    #ellinika-settings input[type="number"] {
+        height: 38px;
+        width: 100px;
+        text-align: right;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+        margin-top: 5px;
+        display: inline-block;
+    }
+    
+    /* Removes spin buttons from number inputs on Webkit browsers */
+    #ellinika-settings input[type="number"]::-webkit-inner-spin-button,
+    #ellinika-settings input[type="number"]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    
+    /* Primary button styles including color, border, and hover effects */
+    #ellinika-settings button {
+        background-color: #0073aa;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 20px;
+    }
+    
+    /* Hover effect for buttons */
+    #ellinika-settings button:hover {
+        background-color: #005a87;
+    }
+    
+    /* Margin styles for sections within settings to space out different groups */
+    #ellinika-settings .section {
+        margin-bottom: 40px;
+    }
+    
+    /* Styling for section headers including bottom border and padding */
+    #ellinika-settings .section h3 {
+        border-bottom: 2px solid #eee;
+        padding-bottom: 5px;
+    }
+    
+    /* Flex container rules to align children properly and allow wrapping */
+    #ellinika-settings .flex-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    /* Margins for direct children of flex containers to ensure proper spacing */
+    #ellinika-settings .flex-row > * {
+        margin-right: 10px;
+        margin-bottom: 10px;
+    }
+    
+    /* Styles for select elements, including custom arrow graphics and padding */
+    #ellinika-settings select {
+        cursor: pointer;
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 8px;
+        box-sizing: border-box;
+        appearance: none;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 4 5"><path fill="%23333" d="M2 0L0 2h4L2 0zm0 5L0 3h4l-2 2z"/></svg>');
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        height: 38px;
+    }
 
-{% import '_includes/forms.twig' as forms %}
+    /* Styling for the select element to match the button style */
+    #timeUnit {
+        color: black; /* Black text */
+        padding: 10px 30px 10px 10px; /* Padding for spacing, extra padding on the right for the arrow */
+        border: none; /* Remove default border */
+        border-radius: 4px; /* Rounded corners */
+        font-size: 16px; /* Increase font size */
+        position: relative; /* Position relative for the custom arrow */
+        width: 100px; /* Set a fixed width */
+        text-align: left; /* Align the text to the left */
+    }
 
-<h1>Settings for Ellinika</h1>
+</style>
+{# End Styles for Settings Page #}
 
-<label for="time">Time, until the translation is marked as forgotten:</label></br>
-<input type="text" id="time" name="settings_time_until_forgotten" placeholder="Enter time">
-
-<select id="unit" name="unit">
-  <option value="h">hours</option>
-  <option value="d">days</option>
-  <option value="m">months</option>
-</select>
+{# Begin Settings Content #}
+<div id="ellinika-settings">
+    <!-- Title for the settings page -->
+    <h1>Settings for Ellinika</h1>
+    
+    <!-- Settings form with CSRF protection and form action setup -->
+    <form method="post" accept-charset="UTF-8">
+        {{ csrfInput() }}
+        {{ actionInput('ellinika/settings/save') }}
+        
+        {# Definitions for descriptions of various settings options #}
+        {% set descriptions = {
+            'timeThreshold': 'Set the time threshold in which an entry, once edited and fully updated, will be displayed again.',
+            'charactersToShow': 'Set the number of characters to display from the changed texts.'
+        } %}
+        
+        {# Section for settings related to text display within the plugin #}
+        <div class="section">
+            <h3>Text Display Settings</h3>
+            <label for="charactersToShow">
+                <!-- Description dynamically rendered from the descriptions object -->
+                <span class="description">{{ descriptions.charactersToShow|raw }}</span>
+            </label>
+            <div>
+                <!-- Input field for specifying the number of characters to display -->
+                <input type="number" id="charactersToShow" name="charactersToShow" value="{{ settings.charactersToShow }}">
+            </div>
+        </div>
+        
+        {# Section for defining the time threshold settings for content visibility #}
+        <div class="section">
+            <h3>Time Threshold Settings</h3>
+            <label for="timeThreshold">
+                <!-- Description dynamically rendered for setting the time threshold -->
+                <span class="description">{{ descriptions.timeThreshold|raw }}</span>
+            </label>
+            <div class="flex-row">
+                <!-- Numeric input for time threshold value -->
+                <input type="number" id="timeThreshold" name="timeThreshold" value="{{ settings.timeThreshold }}">
+                <!-- Dropdown for selecting the unit of time -->
+                <!-- Dropdown for selecting the unit of time -->
+                <select id="timeUnit" name="timeUnit">
+                    <option value="minutes" {{ settings.timeUnit == 'minutes' ? 'selected' : '' }}>Minutes</option>
+                    <option value="hours" {{ settings.timeUnit == 'hours' ? 'selected' : '' }}>Hours</option>
+                    <option value="days" {{ settings.timeUnit == 'days' ? 'selected' : '' }}>Days</option>
+                </select>
+            </div>
+        </div>
+    </form>
+</div>
+{# End Settings Content #}

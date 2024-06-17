@@ -2,42 +2,34 @@
 
 namespace pse\craftellinika\controllers;
 
-use Cassandra\Date;
-use Craft;
-use craft\db\Query;
-use craft\elements\conditions\TitleConditionRule;
+use craft\base\Field;
 use craft\elements\Entry;
-use craft\web\Controller;
-use craft\helpers\Db;
-use pse\craftellinika\models\Ellinika;
-use Stringy\Stringy;
-use yii\db\Exception;
-use yii\web\NotFoundHttpException;
+use craft\errors\InvalidFieldException;
+use craft\errors\MissingComponentException;
+use craft\fields\PlainText;
+use craft\models\EntryType;
+use pse\craftellinika\Plugin;
 use DateTime;
-use DateTimeZone;
+use yii\base\InvalidConfigException;
+use yii\db\Exception;
+
 
 /**
  * EntryHandler checks an entry on multilingual websites
  * for inconsistencies in the updates
  *
- * @author Kevin Lautenschlager, Viola Meier, Daniele
- * @version  v1.1
+ * @author pse24
+ * @copyright devedis
+ * @license MIT
  */
-
-class EntryHandler
-{
-
-    /**
-     * @var Entry
-     */
+ class EntryHandler
+ {
     private Entry $entry;
+    private static array $changedFieldHandles = [];
     private DateTime $lastUpdate;
 
     /**
-     * Constructs an EntryHandler object
-     * @param Entry $entry which triggered EVENT_AFTER_SAFE
-     *
-     * @throws \Exception
+     * @param Entry $entry
      */
     public function __construct(Entry $entry)
     {
@@ -45,85 +37,99 @@ class EntryHandler
         $this->lastUpdate = $entry->dateUpdated;
     }
 
-
-    /**
-     * Processes the entry, checks translations, and sets flash message
-     * @throws \Exception
-     */
-    public function processEntry($changed): void
+     /**
+      * Processes an updated entry
+      * @param bool $changed
+      * @return void
+      * @throws InvalidConfigException
+      * @throws InvalidFieldException
+      * @throws MissingComponentException
+      * @throws \Exception
+      */
+    public function processEntry(bool $changed): void
     {
+        $entryType = $this->entry->getType();
+        $fields = self::getFields($entryType);
         if ($changed) {
-            $inTable = EllinikaController::isInTable($this->entry->id,$this->entry->siteId);
-            if(!$inTable){
-                $lastUpdate = UpdateController::getLastUpdate($this->entry->id,$this->entry->siteId);
-                $timeDiff = $this->getTimeDiff($this->lastUpdate->format('Y-m-d H:i:s'), $lastUpdate);
-                if($timeDiff < 1){
-                    return;
-                }
+            // Speichere geänderte Felder beim ersten Durchgang
+            self::$changedFieldHandles = $this->entry->getDirtyFields();
+        }
+        // Iterates over the fields and gets their handles
+        foreach ($fields as $field) {
+            if (!$field instanceof PlainText){
+                continue;
             }
-            UpdateController::insertUpdateData($this->entry, $this->lastUpdate->format('Y-m-d H:i:s'));
+            if (!in_array($field->handle, self::$changedFieldHandles)) {
+                continue;
+            }
+            $fieldValue = $this->entry->getFieldValue($field->handle);
+            if ($changed) {
+                $inTable = EllinikaController::isInTable($this->entry->id, $this->entry->siteId, $field->handle);
+                if (!$inTable) {
+                    if ($this->isWithinTimeThreshold($field)) {
+                        continue;
+                    }
+                }
+                UpdateController::insertUpdateData($this->entry, $this->lastUpdate->format('Y-m-d H:i:s'), $field->handle);
+            }
+            $existingChanged = EllinikaController::checkEntryChanged($this->entry->id, $this->entry->siteId, $field->handle);
+            $existingEntry = EllinikaController::entryIdExists($this->entry->id, $field->handle);
+            // If 'changed' is true in the database or entry with an EntryId does not exist and the new 'changed' variable is false, do nothing
+            if (!$changed && ($existingChanged || !$existingEntry)) {
+                continue;
+            }
+            EllinikaController::insertEntryData($this->entry, $changed, $field->handle, $fieldValue);
+            EllinikaController::deleteEntriesIfAllChangedTrue($this->entry->id, $field->handle);
         }
-
-        $existingChanged = EllinikaController::checkEntryChanged($this->entry->id, $this->entry->siteId);
-        $existingEntry = EllinikaController::entryIdExists($this->entry->id);
-        // If 'changed' is true in the database or entry with an EntryId does not exist and the new 'changed' variable is false, do nothing
-        if ($changed == false && ($existingChanged == true || $existingEntry==false)) {
-            return;
-        }
-
-        EllinikaController::insertEntryData($this->entry, $changed);
     }
-    public function processFreshEntry()
-    {
-        EllinikaController::insertFreshEntry($this->entry, true);
-        $lastUpdate = $this->lastUpdate;
-        UpdateController::insertFreshEntry($this->entry, $lastUpdate->format('Y-m-d H:i:s'));
-    }
-
 
     /**
-     * Retrieves the content of an entry as a string.
-     *
-     * @param Entry $entry The entry to retrieve content from.
-     * @return string The content string.
+     * Processes a fresh entry
+     * @throws Exception
+     * @throws InvalidConfigException
+     * @throws MissingComponentException
+     * @throws InvalidFieldException
      */
-    public static function getContentAsString(Entry $entry): ?string
+    public function processFreshEntry(): void
     {
-        $entryType = $entry->getType();
-        $content = "Default";
-        $isSingle = self::isSingleEntry($entry);
-        if($isSingle){
-            $content = "No existing fields";
-        } else {
-            // Checks if the entry type exists
-            if ($entryType) {
-
-                // Gets the field layout of the entry type
-                $fieldLayout = $entryType->getFieldLayout();
-
-                // Gets all fields from the field layout
-                $fields = $fieldLayout->getCustomFields();
-
-                // Iterates over the fields and gets their handles
-                foreach ($fields as $field) {
-                    echo $field->handle;
-                }
+        $fields = self::getFields($this->entry->getType());
+        foreach ($fields as $field) {
+            if (!$field instanceof PlainText){
+                continue;
             }
-            if(!$entry->getFieldValue($field->handle) == null){
-                $content = $entry->getFieldValue($field->handle);
-            }
+            $fieldValue = $this->entry->getFieldValue($field->handle);
+            EllinikaController::insertFreshEntry($this->entry, $field->handle, $fieldValue);
+            $lastUpdate = $this->lastUpdate;
+            UpdateController::insertFreshEntry($this->entry, $lastUpdate->format('Y-m-d H:i:s'), $field->handle);
         }
-        return $content;
     }
 
-    public static function isSingleEntry(Entry $entry): bool
-    {
-        $section = $entry->getSection();
+     /**
+      * Gets all fields connected to this entry
+      * @param EntryType $entryType
+      * @return array
+      */
 
-        if ($section && $section->type === \craft\models\Section::TYPE_SINGLE) {
-            return true;
-        }
-        return false;
+    private static function getFields(EntryType $entryType): array
+    {
+        $fieldLayout = $entryType->getFieldLayout();
+        return $fieldLayout->getCustomFields();
+    }
+
+     /**
+      * Checks if the entry should come into the table again
+      * if new update is less than threshold time the entry is
+      * not inserted again
+      * @param Field $field
+      * @return bool true if new update is less than threshold time set in settings
+      */
+    private function isWithinTimeThreshold(Field $field): bool
+    {
+        $lastUpdate = UpdateController::getLastUpdate($this->entry->id, $this->entry->siteId, $field->handle);
+        $timeDiff = $this->getTimeDiff($this->lastUpdate->format('Y-m-d H:i:s'), $lastUpdate);
+        $settings = Plugin::getInstance()->getSettings();
+        $timeThreshold = $settings->timeThreshold;
+        return $timeDiff < $timeThreshold;
     }
 
     /**
@@ -135,9 +141,6 @@ class EntryHandler
      */
     private function getTimeDiff(string $changedUpdate, string $latestUpdate): float
     {
-
-        $min_diff = (strtotime($changedUpdate) - strtotime($latestUpdate)) / 60;
-        return $minutes = $min_diff;
+        return (strtotime($changedUpdate) - strtotime($latestUpdate)) / 60;
     }
 }
-

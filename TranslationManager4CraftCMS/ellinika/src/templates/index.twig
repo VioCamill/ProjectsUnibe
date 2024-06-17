@@ -1,307 +1,865 @@
-
+{# Extends the control panel's main layout file #}
 {% extends "_layouts/cp" %}
 
-{% set title = "Events" %}
+{# Sets the page title for the control panel page #}
+{% set title = "Unchanged Entries" %}
 
+{# Head block where we can add specific metadata and stylesheets #}
 {% block head %}
+    {# Ensures base head content from the main layout is included #}
     {{ parent() }}
+
+    {# Embeds a CSRF token meta element for secure form submissions #}
+    <meta name="csrf-token" content="{{ craft.app.request.csrfToken }}">
+
+    {# Link to a stylesheet for specific page styling.#}
     <style>
         /* Container styles for responsive table display */
         .table-container {
-            width: 100%;
-            margin: auto;
-            padding: 0px;
-            overflow-x: auto;
+        width: 100%;
+        margin: auto;
+        padding: 0;
+        overflow-x: auto;
         }
     
         /* Standard full-width table with collapsed borders */
         table {
-            width: 100%;
-            border-collapse: collapse;
+        width: 100%;
+        border-collapse: collapse;
         }
     
         /* Table headers and cells with consistent text alignment and spacing */
         th, td {
-            text-align: left;
-            padding: 5px;
-            border: 1px solid #ddd;
-            vertical-align: middle;
-            word-wrap: break-word;
+        text-align: left;
+        padding: 5px;
+        border: 1px solid #ddd;
+        vertical-align: middle;
+        word-wrap: break-word;
+        }
+    
+        /* Highlight the first row of the table */
+        table thead tr {
+        background-color: #ededed;
         }
     
         /* Text cell styling with constrained width, hidden overflow, and transition effects */
         .text-cell {
-            min-width: 300px;
-            max-width: 400px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap; 
-            transition: border-color 0.3s;
+        min-width: 300px;
+        max-width: 400px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        transition: border-color 0.3s;
         }
-
+    
         /* Hover effect for text cells to emphasize interaction */
         .text-cell:hover {
-            border: 2px solid blue;
+        border: 2px solid blue;
         }
-
+    
         /* Styling for link-styled buttons with dynamic background transition */
         .url-cell a.url-button {
-            display: inline-block;
-            padding: 6px 12px;
-            background-color: #007bff;
-            color: white;
-            text-align: center;
-            border-radius: 4px;
-            text-decoration: none;
-            transition: background-color 0.3s ease;
+        display: inline-block;
+        padding: 6px 12px;
+        background-color: #007bff;
+        color: white;
+        text-align: center;
+        border-radius: 4px;
+        text-decoration: none;
+        transition: background-color 0.3s ease;
         }
-        
+    
         /* Hover and focus states for link buttons, changing background color */
         .url-cell a.url-button:hover, .url-cell a.url-button:focus {
-            background-color: #0056b3;
-            text-decoration: none;
-        }
-        
-        /* Basic button styling with size and font adjustments */
-        button.btn {
-            padding: 4px 8px;
-            font-size: 0.875rem;
+        background-color: #0056b3;
+        text-decoration: none;
         }
     
         /* Hidden modal elements styled for centering and overlay display */
-        .edit-modal, .view-modal {
-            display: none;
-            justify-content: center;
-            align-items: center;
-            position: fixed;
-            z-index: 1050;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.4);
+        .edit-modal {
+        display: none;
+        justify-content: center;
+        align-items: center;
+        position: fixed;
+        z-index: 1050;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.7);
         }
-        
+    
         /* Modal content boxes styled for visual appeal and user interaction */
-        .edit-modal-content, .view-modal-content {
-            background-color: #fefefe;
-            margin: auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: auto;
-            max-width: 1600px;
-            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
-            overflow: hidden;
+        .edit-modal-content { 
+        background-color: #fefefe;
+        margin: auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: auto;
+        max-width: 100%;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2), 0 6px 20px rgba(0,0,0,0.19);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
+        height: 100vh;
+        overflow: hidden;
+        }
+    
+        /* Limit modal content height to avoid overflow */
+        .edit-modal-content div {
+        overflow-y: hidden;
+        max-height: calc(100% - 40px);
+        }
+    
+        /* Close button styles indicating interactive elements with hover and focus states */
+        .edit-close  {
+        color: #aaa;
+        align-self: flex-end;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        margin: 0 0 10px 10px;
+        }
+    
+        /* Close button hover and focus states */
+        .edit-close:hover, .edit-close:focus  {
+        color: black;
+        text-decoration: none;
+        }
+    
+        /* Adjustments for the save button to align right and match Craft's style */
+        button.btn-return {
+        padding: 10px 15px;
+        font-size: 1rem;
+        background-color: #555;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 10px;
+        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.045);
+        }
+    
+        /* SVG icon styles inside buttons */
+        .btn-save-changes svg,
+        .btn-return svg {
+        margin-right: 8px;
+        width: 16px;
+        height: 16px;
+        }
+    
+        /* Save changes button hover and focus states */
+        button.btn-save-changes:hover, button.btn-save-changes:focus {
+        background-color: #c44;
+        outline: none;
+        }
+    
+        /* SVG fill color for return button */
+        .btn-return svg {
+        fill: white;
+        }
+    
+        /* Return button hover and focus states */
+        button.btn-return:hover, button.btn-return:focus {
+        background-color: #666;
+        }
+    
+        /* Styling for black links with hover effects */
+        .black-link {
+        color: black;
+        text-decoration: none;
+        }
+    
+        /* Black link hover state */
+        .black-link:hover {
+        color: blue;
+        text-decoration: underline;
+        }
+    
+        /* Styling for modal headers */
+        .modal-header {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        width: 100%;
+        padding: 10px;
+        }
+    
+        /* General button styling */
+        .btn {
+        flex: 0 0 auto;
+        margin-left: 10px;
+        padding: 10px 20px;
+        font-size: 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        }
+    
+        /* Return button styling */
+        .btn-return {
+        background-color: #606060;
+        color: white;
+        }
+    
+        /* Return button hover state */
+        .btn-return:hover {
+        background-color: #505050;
+        }
+    
+        /* Save changes button styling */
+        .btn-save-changes {
+        background-color: #e14d43;
+        color: white;
+        }
+    
+        /* Save changes button hover state */
+        .btn-save-changes:hover {
+        background-color: #c44;
+        }
+    
+        /* Column width settings */
+        .title-column {
+        width: 5%;
+        }
+    
+        .field-column {
+        width: 5%;
+        }
+    
+        .text-column {
+        width: 50%;
+        }
+    
+        .changed-column {
+        width: 10%;
+        }
+    
+        .unchanged-column {
+        width: 10%;
+        }
+    
+        .actions-column,
+        .author-column {
+        width: 10%;
+        text-align: center;
+        }
+    
+        /* Styling for 'No data available' row */
+        .no-data {
+        text-align: center;
+        }
+    
+        /* Button styling for edit and delete actions */
+        .edit-button,
+        .delete-button {
+        border: none;
+        background: none;
+        cursor: pointer;
+        }
+
+        
+        /* Styles for the modal content */
+        .edit-modal-content {
+            width: 85%;
+            height: 90%;
+        }
+
+        /* Styles for the return and save changes buttons */
+        .btn-return, .btn-save-changes {
+            display: flex;
+            align-items: center;
+        }
+
+        /* Container for the dual view layout */
+        .dual-view-container {
+            display: flex;
+            height: 650px;
+        }
+
+        /* Styles for the original text container */
+        .original-text-container {
+            flex: 1; /* Ensures both containers take up equal space */
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            margin-right: 20px; /* Adds space between the two containers, adjust as necessary */
+            border: 2px solid #909090; /* Consistent border style */
+            background: #ffffff; /* Consistent background color */
+            outline: none; /* Removes outline to clean up focus visuals */
         }
-        
-        /* Close button styles indicating interactive elements with hover and focus states */
-        .edit-close, .view-close {
-            color: #aaa;
-            align-self: flex-end;
-            font-size: 28px;
-            font-weight: bold;
+
+        /* Styles for the editable text container */
+        .editable-text-container {
+            flex: 1; /* Ensures both containers take up equal space */
+            display: flex;
+            flex-direction: column;
+            margin-right: 0; /* Remove the margin on the last container to prevent double spacing */
+            border: 2px solid #909090; /* Consistent border style */
+            background: #f0f0f0; /* Grey background color */
+            outline: none; /* Removes outline to clean up focus visuals */
+        }
+
+        /* Styles for the text display and editable text areas */
+        .text-display, .editable-text {
+            overflow-y: auto; /* Ensures content is scrollable */
+            flex-grow: 1; /* Allows the textarea and div to expand to fill the container */
+            padding: 10px; /* Padding for internal spacing */
+            border: none; /* Removes internal borders if not needed */
+        }
+
+        /* Styles specifically for the editable textarea */
+        .editable-text {
+            background: #f8f8f8; /* Light grey background initially */
+            border: 1px solid #b0b0b0; /* Light border to indicate it is an editable area */
+            resize: none; /* Prevents resizing */
+            border-radius: 4px; /* Adds slight rounding to the corners */
+            font-family: inherit; /* Ensures font consistency */
+            color: #333; /* Darker text color for readability */
+            transition: background-color 0.3s ease; /* Smooth transition for background color change */
+        }
+
+        /* Hover state styles for the editable textarea */
+        .editable-text:hover {
+            background: #e0e0e0; /* Darker grey background on hover */
+        }
+
+        /* Focus state styles for the editable text area */
+        .editable-text:focus {
+            outline: none; /* Removes the outline */
+            box-shadow: inset 0 0 3px #888; /* Slightly darker shadow to indicate focus */
+        }
+
+        /* Additional styles for the headers */
+        #originalTextHeader, #unchangedLanguageTextHeader {
+            margin: 0;
+            padding: 10px;
+            border-bottom: 2px solid #909090; /* Optional: adds a bottom border to separate header from content */
+            background: #e0e0e0; /* Optional: gives the headers a different background color */
+        }
+
+        /* Styles for the info button container */
+        .info-button-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        /* Styles for the info button */
+        .info-button {
+            background: none;
+            border: none;
             cursor: pointer;
-            margin: 0 0 10px 10px;
-        }
-        
-        .edit-close:hover, .view-close:hover,
-        .edit-close:focus, .view-close:focus {
+            font-size: 16px;
             color: black;
-            text-decoration: none;
+            transition: color 0.3s ease;
         }
+
+        /* Change the color to blue on hover */
+        .info-button:hover {
+            color: blue;
+        }
+
+        /* Hidden info content by default */
+        .info-content {
+            display: none;
+            position: absolute;
+            background-color: #f9f9f9;
+            color: #333;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            z-index: 1;
+            top: 20px; /* Position below the button */
+            right: 0; /* Align to the right of the button */
+            width: 200px; /* Set a fixed width */
+        }
+
+        /* Show the info content on hover */
+        .info-button-container:hover .info-content {
+            display: block;
+        }
+
     </style>
+
 {% endblock %}
 
-
 {% block content %}
-    {% if entries is not empty %}
-        <!-- Creates a table to display entry details if entries exist -->
-        <table>
-            <thead>
-                <tr>
-                    <th>Entry ID</th>
-                    <th>Text</th>
-                    <th>Changed</th>
-                    <th>Unchanged</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for entry_id, data in entries %}
+<div class="ellinika-template">
+    {% if entries %}
+    <!-- Table structure for displaying entry data -->
+    <table>
+        <thead>
+            <!-- Header row defining the columns of the table -->
+            <tr>
+                <th style="width: 5%;">Title</th>
+                <th style="width: 5%;">Field</th>
+                <th style="width: 50%;">Text</th>                    
+                <th style="width: 5%;">Changed</th>
+                <th style="width: 10%;">To change
+                <div class="info-button-container">
+                    <button class="info-button" aria-label="Info">&#9432;</button>
+                    <div class="info-content">By clicking on the language (e.g., en), you are taken directly to the entry</div>
+                </div>
+                </th>
+                <th style="width: 10%;text-align: center;">Actions</th>
+                <th style="width: 10%;text-align: center;">Author</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Loop through each entry in the 'entries' dictionary -->
+            {% for entry_id, data in entries %}
+                <!-- Nested loop for each field within an entry -->
+                {% for fieldHandle, field in data.fields %}
+                    <!-- Table row for each field of an entry -->
                     <tr>
-                        <td>{{ entry_id }}</td>
-                        <td class="text-cell">
-                            <!-- Displays text and attaches a click event for viewing details -->
-                            <span onclick="viewEntry('{{ data.text | escape('js') }}');">{{ data.text }}</span>
-                        </td>
-                        <td>
-                            <!-- Renders forms for each language that has changed -->
-                            {% for language_id in data.changedLanguages %}
-                                <form action="{{ url('actions/ellinika/entry/update-text') }}" method="POST">
-                                    {{ csrfInput() }}
-                                    <input type="hidden" name="entryId" value="{{ entry_id }}">
-                                    <div>
-                                        <input type="radio" id="changed-lang-{{ entry_id }}-{{ language_id }}"
-                                               name="selectedLanguage" value="{{ language_id }}"
-                                               onchange="this.form.submit()">
-                                        <label for="changed-lang-{{ entry_id }}-{{ language_id }}">
-                                            {{ craft.app.sites.getSiteById(language_id).language }}
-                                        </label>
-                                    </div>
-                                </form>
-                            {% endfor %}
-                        </td>
-                        <td>
-                            <!-- Displays radio buttons for languages that have not changed -->
-                            {% for language_id in data.unchangedLanguages %}
-                                <div>
-                                    <input type="radio" id="lang-{{ entry_id }}-{{ language_id }}" name="selected_language_{{ entry_id }}" value="{{ language_id }}">
-                                    <label for="lang-{{ entry_id }}-{{ language_id }}">
-                                        {{ craft.app.sites.getSiteById(language_id).language }}
-                                    </label>
-                                </div>
-                            {% endfor %}
-                        </td>
-                        <td>
-                            <!-- Button to open the edit modal -->
-                            <button type="button" onclick="openDualViewEditModal({{ entry_id }})" class="btn" aria-label="Edit entry" style="border: none; background: none; cursor: pointer;">
-                                📝 Edit
-                            </button>
-                        
-                            <!-- Button to delete an entry -->
-                            <form method="post" action="{{ url('actions/ellinika/ellinika/delete-entry') }}">
-                                {{ csrfInput() }}
-                                <input type="hidden" name="action" value="ellinika/ellinika/delete-entry">
-                                <input type="hidden" name="entryId" value="{{ entry_id }}">
-                                <button type="submit" class="btn" aria-label="Delete entry" style="border: none; background: none; cursor: pointer;">
-                                    🗑️ Delete
-                                </button>
-                            </form>
+                        <td>{{ data.title }}</td> <!-- Display the title of the entry -->
+                        <td>{{ fieldHandle }}</td> <!-- Display the field handle -->
+                        <td>{{ _self.displayTexts(entry_id, field, fieldHandle) }}</td> <!-- Call macro to display texts related to the field -->
+                        <td>{{ _self.displayChangedLanguages(entry_id, field, fieldHandle) }}</td> <!-- Call macro to display languages that have changed -->
+                        <td>{{ _self.displayUnchangedLanguages(entry_id, field, fieldHandle) }}</td> <!-- Call macro to display languages that have not changed -->
+                        <td>{{ _self.actionButtons(entry_id, fieldHandle) }}</td> <!-- Call macro to display action buttons like edit and delete -->
+                        <td style="text-align: center;">
+                            {{ data.author }}<br>
+                            {{ data.dateCreated|date('d.m.Y') }}<br>
+                            {{ data.dateCreated|date('H:i') }}
                         </td>
                     </tr>
                 {% endfor %}
-            </tbody>
-        </table>
+            {% endfor %}
+        </tbody>
+    </table>
     {% else %}
-        <!-- Displays an empty table with a message when no entries are available -->
-        <table>
-            <thead>
-                <tr>
-                    <th>Entry ID</th>
-                    <th>Text</th>
-                    <th>Unchanged</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td colspan="4" style="text-align: center;">No data available</td>
-                </tr>
-            </tbody>
-        </table>
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Field</th>
+                <th>Text</th>
+                <th>Changed</th>
+                <th>To change</th>
+                <th style="text-align: center;">Actions</th>
+                <th style="text-align: center;">Author</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="7" style="text-align: center;">No text to change</td>
+            </tr>
+        </tbody>
+    </table>
     {% endif %}
-
-
-<!-- Dual View Edit Entry Modal -->
-<div id="dualViewEditModal" class="edit-modal">
-    <div class="edit-modal-content" style="width: 80%;">
-        <!-- Close button for the modal -->
-        <span class="edit-close">&times;</span>
-        <h3>Edit Entry</h3>
-        <div style="display: flex; height: 400px;">
-            <!-- Left side: Displaying original text -->
-            <div style="flex: 1; overflow-y: auto; margin-right: 20px;">
-                <h4>Original Text</h4>
-                <div id="originalText" style="background: #eee; padding: 10px; overflow-y: auto; height: 100%;">
-                    <!-- Placeholder where original text is displayed -->
-                </div>
-            </div>
-            <!-- Right side: Textarea for editing unchanged language text -->
-            <div style="flex: 1; overflow-y: auto;">
-                <h4>Unchanged Language Text</h4>
-                <textarea id="unchangedLanguageText" rows="20" style="width: 100%;">
-                    <!-- Placeholder where editable text for unchanged language is entered -->
-                </textarea>
-            </div>
-        </div>
-        <!-- Button to submit changes -->
-        <button onclick="saveChanges()" class="btn btn-primary">Save Changes</button>
-    </div>
 </div>
 
-<script>
-    // Access modal and close button elements
-    var dualViewEditModal = document.getElementById('dualViewEditModal');
-    var editCloseButton = dualViewEditModal.querySelector('.edit-close');
 
-    // Function to hide modal on close button click
-    editCloseButton.onclick = function() {
-        dualViewEditModal.style.display = "none";
-    };
+    <!-- Modal structure for editing entries with a dual view interface -->
+    <div id="dualViewEditModal" class="edit-modal">
+        <div class="edit-modal-content">
+    
+            <!-- Modal header containing close, return, and save buttons -->
+            <div class="modal-header">
+                <!-- Close icon button, necessary for displaying text in selected language -->
+                <span class="edit-close"></span> 
+                
+                <!-- Return button -->
+                <button onclick="closeModal()" class="btn btn-return" style="display: flex; align-items: center;">
+                    <svg fill="#000000" height="24" width="24" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                        <g>
+                            <g>
+                                <path d="M317.959,115.859H210.158V58.365h-44.864L0,223.66l165.294,165.294h44.864V331.46h136.548
+                                    c67.367,0,122.174,54.807,122.174,122.174H512V309.9C512,202.905,424.953,115.859,317.959,115.859z M468.88,342.412
+                                    c-30.253-33.206-73.82-54.071-122.174-54.071H167.038v41.378L60.981,223.661l106.057-106.057v41.375h150.921
+                                    c83.219,0,150.921,67.703,150.921,150.921V342.412z"/>
+                            </g>
+                        </g>
+                    </svg>
+                    <span style="margin-left: 5px;">Return</span>
+                </button>
+    
+                <!-- Save changes button -->
+                <button onclick="saveChanges()" class="btn btn-save-changes" style="display: flex; align-items: center;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="white" fill-rule="evenodd" clip-rule="evenodd" d="M18.1716 1C18.702 1 19.2107 1.21071 19.5858 1.58579L22.4142 4.41421C22.7893 4.78929 23 5.29799 23 5.82843V20C23 21.6569 21.6569 23 20 23H4C2.34315 23 1 21.6569 1 20V4C1 2.34315 2.34315 1 4 1H18.1716ZM4 3C3.44772 3 3 3.44772 3 4V20C3 20.5523 3.44772 21 4 21L5 21L5 15C5 13.3431 6.34315 12 8 12L16 12C17.6569 12 19 13.3431 19 15V21H20C20.5523 21 21 20.5523 21 20V6.82843C21 6.29799 20.7893 5.78929 20.4142 5.41421L18.5858 3.58579C18.2107 3.21071 17.702 3 17.1716 3H17V5C17 6.65685 15.6569 8 14 8H10C8.34315 8 7 6.65685 7 5V3H4ZM17 21V15C17 14.4477 16.5523 14 16 14L8 14C7.44772 14 7 14.4477 7 15L7 21L17 21ZM9 3H15V5C15 5.55228 14.5523 6 14 6H10C9.44772 6 9 5.55228 9 5V3Z"/>
+                    </svg>
+                    <span style="margin-left: 5px;">Save changes</span>
+                </button>
+            </div>
+            
+            <!-- Container for dual view content, separated into two halves -->
+             <div class="dual-view-container">
+                <!-- Original text container -->
+                <div class="original-text-container">
+                    <h2 id="originalTextHeader"></h2>
+                    <div id="originalText" class="text-display">
+                        <!-- Placeholder for displaying original text -->
+                    </div>
+                </div>
+                <!-- Editable text container for unchanged language -->
+                <div class="editable-text-container">
+                    <h2 id="unchangedLanguageTextHeader"></h2>
+                    <textarea id="unchangedLanguageText" class="editable-text">
+                        <!-- Placeholder for entering editable text in the unchanged language -->
+                    </textarea>
+                </div>
+            </div>      
+        </div>
+    </div>
+    
+    <script>
+        /**
+        * Here starts the code for modal handling
+        */
 
-    // Function to hide modal when clicking outside its content
-    window.onclick = function(event) {
-        if (event.target == dualViewEditModal) {
+        // Retrieve the modal element and the close button from the DOM
+        var dualViewEditModal = document.getElementById('dualViewEditModal');
+        var editCloseButton = dualViewEditModal.querySelector('.edit-close');
+        // Declare variables to store the current entry ID and field handle globally
+        var currentEntryId, currentFieldHandle; // Proper scoping of variables
+
+        // Assign a function to handle close button clicks, hiding the modal
+        editCloseButton.onclick = hideDualViewEditModal;
+        // Assign a function to handle clicks on the window, hiding the modal if the clicked target is the modal background
+        window.onclick = function(event) {
+            if (event.target == dualViewEditModal) {
+                hideDualViewEditModal();
+            }
+        };
+
+        /**
+        * Hides the dual view edit modal by setting its display style to none.
+        */
+        function hideDualViewEditModal() {
             dualViewEditModal.style.display = "none";
         }
-    };
 
-    // Opens the modal for editing and fills it with selected entry details
-    function openDualViewEditModal(entryId) {
-        var selectedLanguageId = document.querySelector(`input[name='selected_language_${entryId}']:checked`)?.value;
-        if (!selectedLanguageId) {
-            alert('Please select a language.');
-            return;
+
+
+        /**
+        * Here starts the code for modal content handling
+        */
+
+        /**
+        * Opens the dual view edit modal with specific entry and field details.
+        * Validates language selection before displaying text.
+        *
+        * @param int entryId The ID of the entry.
+        * @param string fieldHandle The handle of the field.
+        */
+        function openDualViewEditModal(entryId, fieldHandle) {
+            currentEntryId = entryId;
+            currentFieldHandle = fieldHandle;
+
+            if (!areLanguagesSelected(entryId, fieldHandle)) {
+                alert('Please select both a changed and unchanged language.');
+                return;
+            }
+
+            displayTexts(entryId, fieldHandle);
+            dualViewEditModal.style.display = 'block';
         }
 
-        // Simulated placeholder texts for demo; normally fetch from server
-        document.getElementById('originalText').innerText = 'Original text here...';
-        document.getElementById('unchangedLanguageText').value = 'Editable unchanged language text here...';
+        /**
+        * Checks if both a changed and unchanged language are selected for a given entry and field.
+        *
+        * @param int entryId The ID of the entry.
+        * @param string fieldHandle The handle of the field.
+        * @return boolean Returns true if both languages are selected, false otherwise.
+        */
+        function areLanguagesSelected(entryId, fieldHandle) {
+            var changedLanguageInput = document.querySelector(`input[name='changed_language_${entryId}_${fieldHandle}']:checked`);
+            var unchangedLanguageInput = document.querySelector(`input[name='unchanged_language_${entryId}_${fieldHandle}']:checked`);
+            return changedLanguageInput && unchangedLanguageInput;
+        }
 
-        dualViewEditModal.style.display = 'block';
-    }
+        /**
+        * Displays texts in the modal based on the selected languages.
+        *
+        * @param int entryId The ID of the entry.
+        * @param string fieldHandle The handle of the field.
+        */
+        function displayTexts(entryId, fieldHandle) {
+            var changedLanguageInput = document.querySelector(`input[name='changed_language_${entryId}_${fieldHandle}']:checked`);
+            var unchangedLanguageInput = document.querySelector(`input[name='unchanged_language_${entryId}_${fieldHandle}']:checked`);
+            var changedText = getFullText(entryId, fieldHandle, changedLanguageInput.value);
+            var unchangedText = getFullText(entryId, fieldHandle, unchangedLanguageInput.value);
 
-    // Placeholder for future save functionality
-    function saveChanges() {
-        alert('Save functionality not implemented yet.');
-    }
-</script>
+            setModalHeaders(entryId, fieldHandle, changedLanguageInput.value, unchangedLanguageInput.value);
+            document.getElementById('originalText').textContent = changedText;
+            document.getElementById('unchangedLanguageText').textContent = unchangedText;
+        }
 
-<!-- View Entry Modal -->
-<div id="viewEntryModal" class="view-modal">
-    <div class="view-modal-content">
-        <!-- Close button for the view modal -->
-        <span class="view-close">&times;</span>
-        <h3>View Entry</h3>
-        <p id="viewText"></p>
-    </div>
+        /**
+        * Retrieves the full text from an entry based on specified language.
+        *
+        * @param int entryId The ID of the entry.
+        * @param string fieldHandle The handle of the field.
+        * @param string language The language of the text to retrieve.
+        * @return string The full text of the specified language version of an entry.
+        */
+        function getFullText(entryId, fieldHandle, language) {
+            return document.querySelector(`.text-entry[data-entry-id='${entryId}'][data-field='${fieldHandle}'][data-language='${language}']`).getAttribute('data-full-text');
+        }
+
+        /**
+        * Sets the headers in the modal to indicate which texts are being compared.
+        *
+        * @param int entryId The ID of the entry.
+        * @param string fieldHandle The handle of the field.
+        * @param string changedLanguage The language code for the changed text.
+        * @param string unchangedLanguage The language code for the unchanged text.
+        */
+        function setModalHeaders(entryId, fieldHandle, changedLanguage, unchangedLanguage) {
+            var changedLanguageLabel = document.querySelector(`label[for='changed-lang-${entryId}-${fieldHandle}-${changedLanguage}']`).textContent;
+            var unchangedLanguageLabel = document.querySelector(`label[for='unchanged-lang-${entryId}-${fieldHandle}-${unchangedLanguage}']`).textContent;
+
+            document.getElementById('originalTextHeader').textContent = "Changed (" + changedLanguageLabel + ")";
+            document.getElementById('unchangedLanguageTextHeader').textContent = "To change (" + unchangedLanguageLabel + ")";
+        }
+
+
+
+        /**
+        * Here starts the code for event handling on document load
+        */
+
+        /**
+        * Document Load Event Handler
+        * This script is triggered when the HTML document has been fully loaded.
+        * It sets up functionality to manage the visibility of text entries based on selected language options via radio buttons.
+        */
+        document.addEventListener('DOMContentLoaded', function() {
+
+            /**
+            * Updates the visibility of all text entries based on the currently checked radio buttons.
+            * This function is initially called to set up the correct display state based on any pre-checked radio buttons.
+            */
+            function updateTextVisibility() {
+                document.querySelectorAll('input[type="radio"][name^="changed_language"]:checked').forEach(radio => {
+                    updateEntriesVisibility(radio);
+                });
+            }
+
+            /**
+            * Updates the visibility of text entries associated with a specific radio button.
+            * This function shows the text entry corresponding to the selected radio button's language and hides others.
+            * @param {HTMLInputElement} radio - The radio button whose state has changed.
+            */
+            function updateEntriesVisibility(radio) {
+                const entryId = radio.dataset.entryId; // The data attribute specifying the entry ID
+                const fieldHandle = radio.dataset.fieldHandle; // The data attribute specifying the field handle
+                const languageId = radio.value; // The value attribute of the radio button indicating the language ID
+
+                // Hide all text entries for the specified entry and field handle
+                document.querySelectorAll(`.text-entry[data-entry-id="${entryId}"][data-field="${fieldHandle}"]`).forEach(entry => {
+                    entry.style.display = 'none';
+                });
+
+                // Show the text entry for the selected language
+                const selectedText = document.querySelector(`.text-entry[data-entry-id="${entryId}"][data-field="${fieldHandle}"][data-language="${languageId}"]`);
+                if (selectedText) {
+                    selectedText.style.display = 'block';
+                }
+            }
+
+            /**
+            * Attach change event listeners to all radio buttons that dictate language changes.
+            * This allows dynamic updating of text visibility based on user interaction.
+            */
+            document.querySelectorAll('input[type="radio"][name^="changed_language"]').forEach(radio => {
+                radio.addEventListener('change', () => updateEntriesVisibility(radio));
+            });
+
+            /**
+            * Set up the default state for radio buttons upon initial load.
+            * Ensures that there is a selected radio button and updates the text entries accordingly.
+            */
+            const defaultRadio = document.querySelector('input[type="radio"][name^="changed_language"]');
+            if (defaultRadio) {
+                defaultRadio.checked = true; // Ensure the first radio button is checked by default
+                updateEntriesVisibility(defaultRadio); // Update visibility for the default checked state
+            }
+
+            /**
+            * Optionally, force an update on all radios to ensure consistency.
+            * This is useful if radios might be dynamically checked/unchecked by other scripts or user actions.
+            */
+            document.querySelectorAll('input[type="radio"][name^="changed_language"]').forEach(radio => {
+                if (radio.checked) {
+                    updateEntriesVisibility(radio);
+                }
+            });
+        });
+
+
+
+
+
+        /**
+        * Here starts the code for saving changes and handling modal actions
+        */
+
+        /**
+        * Saves changes made to the text content of a specific entry and field in the backend,
+        * and handles language selection validations.
+        *
+        * Sends an AJAX POST request to a server endpoint to save the updated text,
+        * using CSRF protection. Displays a success notice or an error message based on the response.
+        */
+        function saveChanges() {
+            var newText = document.getElementById('unchangedLanguageText').value.trim();
+            var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            var unchangedLanguageInput = document.querySelector(`input[name='unchanged_language_${currentEntryId}_${currentFieldHandle}']:checked`);
+
+            if (!unchangedLanguageInput) {
+                Craft.cp.displayError('Please select an unchanged language to edit.');
+                return;
+            }
+
+            fetch('/actions/ellinika/ellinika/update-field-content', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({
+                    entryId: currentEntryId,
+                    fieldHandle: currentFieldHandle,
+                    languageId: unchangedLanguageInput.value,
+                    newText: newText
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    closeModal();
+                    Craft.cp.displayNotice('Entry saved successfully.');                 
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    throw new Error('Update failed: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Craft.cp.displayError('An error occurred: ' + error.message);
+            });
+        }
+
+        /**
+        * Closes the modal dialog by setting its display style to none.
+        */
+        function closeModal() {
+            document.getElementById('dualViewEditModal').style.display = "none";
+        }
+
+        /**
+        * Initiates a confirmation dialog to confirm the deletion of an entry.
+        * This function is meant to ensure that the deletion action is explicitly confirmed by the user.
+        * @return boolean Returns the user's confirmation choice: true if the user confirms deletion, false otherwise.
+        */
+        function confirmDeletion() {
+            return confirm('Are you sure you want to delete this field from the List? This action cannot be undone.');
+        }
+
+    </script>
 </div>
 
-<script>
-    // Access view modal and close button
-    var viewModal = document.getElementById('viewEntryModal');
-    var viewCloseButton = document.querySelector('.view-close');
+{# 
+    Macro to display the texts for an entry in different languages.
+    It iterates over each text and language combination, determines if the language is changed,
+    and sets the display style accordingly. Truncates text if it exceeds the configured character limit.
+  #}
+  {% macro displayTexts(entry_id, field, fieldHandle) %}
+      {% for language_id, text in field.texts %}
+          {% set isChangedLanguage = language_id in field.changedLanguages %}
+          {% set displayStyle = isChangedLanguage ? 'block' : 'none' %}
+          <div class="text-entry" data-entry-id="{{ entry_id }}" data-language="{{ language_id }}" data-field="{{ fieldHandle }}" data-full-text="{{ text }}" style="display: {{ displayStyle }};">
+              {% set truncated_text = text|length > craft.app.plugins.getPlugin('ellinika').getSettings().charactersToShow ? text|slice(0, craft.app.plugins.getPlugin('ellinika').getSettings().charactersToShow) ~ '...' : text %}
+              <a href="{{ field.urls[language_id] }}" class="black-link">{{ truncated_text }}</a>
+          </div>
+      {% endfor %}
+  {% endmacro %}
+  
+  {# 
+    Macro to display radio buttons for languages that have changed texts.
+    It iterates over each changed language, creates a radio button for it,
+    and sets the radio button to checked if the language is in the changedLanguages list.
+  #}
+  {% macro displayChangedLanguages(entry_id, field, fieldHandle) %}
+      {% for language_id in field.changedLanguages %}
+          <div>
+              <input type="radio" id="changed-lang-{{ entry_id }}-{{ fieldHandle }}-{{ language_id }}"
+                     name="changed_language_{{ entry_id }}_{{ fieldHandle }}"
+                     data-entry-id="{{ entry_id }}" data-field-handle="{{ fieldHandle }}" value="{{ language_id }}"
+                     onchange="updateTextVisibility()"
+                     {{ language_id in field.changedLanguages ? 'checked' : '' }}>
+              
+              <label for="changed-lang-{{ entry_id }}-{{ fieldHandle }}-{{ language_id }}">
+                  <a href="{{ field.urls[language_id] }}" class="black-link">{{ craft.app.sites.getSiteById(language_id).language }}</a>
+              </label>
+          </div>
+      {% endfor %}
+  {% endmacro %}
+  
+  {# 
+    Macro to display radio buttons for languages that have unchanged texts.
+    It iterates over each unchanged language, creates a radio button for it,
+    and sets the radio button to checked if the language is in the unchangedLanguages list.
+  #}
+  {% macro displayUnchangedLanguages(entry_id, field, fieldHandle) %}
+      {% for language_id in field.unchangedLanguages %}
+          <div>
+              <input type="radio" id="unchanged-lang-{{ entry_id }}-{{ fieldHandle }}-{{ language_id }}"
+                     name="unchanged_language_{{ entry_id }}_{{ fieldHandle }}" value="{{ language_id }}"
+                     onchange="updateTextVisibility('{{ entry_id }}', '{{ fieldHandle }}', '{{ language_id }}', 'unchanged')"
+                     {{ language_id in field.unchangedLanguages ? 'checked' : '' }}>
+              
+              <label for="unchanged-lang-{{ entry_id }}-{{ fieldHandle }}-{{ language_id }}">
+                  <a href="{{ field.urls[language_id] }}" class="black-link">{{ craft.app.sites.getSiteById(language_id).language }}</a>
+              </label>
+          </div>
+      {% endfor %}
+  {% endmacro %}
+  
+  {# 
+    Macro to display action buttons for editing and deleting a field.
+    It creates an "Edit" button that opens a dual view edit modal, and a "Delete" button
+    that submits a form to delete the field after user confirmation.
+  #}
+  {% macro actionButtons(entry_id, fieldHandle) %}
+  <button type="button" onclick="openDualViewEditModal({{ entry_id }}, '{{ fieldHandle }}')" class="btn edit-button" aria-label="Edit entry" style="display: flex; align-items: center;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21.2799 6.40005L11.7399 15.94C10.7899 16.89 7.96987 17.33 7.33987 16.7C6.70987 16.07 7.13987 13.25 8.08987 12.3L17.6399 2.75002C17.8754 2.49308 18.1605 2.28654 18.4781 2.14284C18.7956 1.99914 19.139 1.92124 19.4875 1.9139C19.8359 1.90657 20.1823 1.96991 20.5056 2.10012C20.8289 2.23033 21.1225 2.42473 21.3686 2.67153C21.6147 2.91833 21.8083 3.21243 21.9376 3.53609C22.0669 3.85976 22.1294 4.20626 22.1211 4.55471C22.1128 4.90316 22.0339 5.24635 21.8894 5.5635C21.7448 5.88065 21.5375 6.16524 21.2799 6.40005V6.40005Z" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M11 4H6C4.93913 4 3.92178 4.42142 3.17163 5.17157C2.42149 5.92172 2 6.93913 2 8V18C2 19.0609 2.42149 20.0783 3.17163 20.8284C3.92178 21.5786 4.93913 22 6 22H17C19.21 22 20 20.2 20 18V13" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span style="margin-left: 5px;">Edit</span>
+    </button>
+  <form method="post" action="{{ url('actions/ellinika/ellinika/delete-field') }}" onsubmit="return confirm('Are you sure you want to delete this field? This action cannot be undone.');">
+      {{ csrfInput() }}
+      <input type="hidden" name="action" value="ellinika/ellinika/delete-field">
+      <input type="hidden" name="fieldHandle" value="{{ fieldHandle }}">
+      <input type="hidden" name="entryId" value="{{ entry_id }}">
+      <button type="submit" class="btn delete-button" aria-label="Delete field" style="display: flex; align-items: center;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 12V17" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M14 12V17" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 7H20" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M6 10V18C6 19.6569 7.34315 21 9 21H15C16.6569 21 18 19.6569 18 18V10" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9 5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5V7H9V5Z" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span style="margin-left: 5px;">Delete</span>
+        </button>
+  </form>
+{% endmacro %}
 
-    // Opens modal to display selected entry text
-    function viewEntry(text) {
-        document.getElementById('viewText').textContent = text;
-        viewModal.style.display = "block";
-    }
 
-    // Function to hide view modal on close button click
-    viewCloseButton.onclick = function() {
-        viewModal.style.display = "none";
-    };
 
-    // Hide modal when clicking outside of it
-    window.onclick = function(event) {
-        if (event.target === viewModal) {
-            viewModal.style.display = "none";
-        }
-    };
-</script>
+  
+
 {% endblock %}

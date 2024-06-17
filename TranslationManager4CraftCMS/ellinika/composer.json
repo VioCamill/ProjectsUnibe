@@ -1,6 +1,6 @@
 {
     "name": "pse/craft-ellinika",
-    "description": "Handle content in different languages",
+    "description": "The Ellinika-plugin helps manage multilingual websites by indicating when a text has been changed but not updated in other languages",
     "type": "craft-plugin",
     "license": "mit",
     "require": {

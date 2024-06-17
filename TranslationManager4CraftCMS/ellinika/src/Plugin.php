@@ -6,20 +6,22 @@ use Craft;
 use craft\base\Element;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
+use craft\errors\MissingComponentException;
 use craft\events\ModelEvent;
 use craft\elements\Entry;
-use phpDocumentor\Reflection\Types\True_;
 use pse\craftellinika\controllers\EllinikaController;
 use pse\craftellinika\models\Settings;
 use pse\craftellinika\controllers\UpdateController;
-use ReflectionObject;
+use Twig\Error\LoaderError;
+use Twig\Error\RuntimeError;
+use Twig\Error\SyntaxError;
 use yii\base\Event;
-use pse\craftellinika\controllers\databaseController;
 use pse\craftellinika\controllers\EntryHandler;
 use craft\events\RegisterUrlRulesEvent;
 use craft\web\UrlManager;
-use DateTime;
-use DateTimeZone;
+use yii\base\Exception;
+use yii\base\InvalidConfigException;
+use yii\console\Application as ConsoleApplication;
 
 /**
  * Ellinika plugin.
@@ -29,38 +31,23 @@ use DateTimeZone;
  * This class is responsible for setting up the plugin's core functionalities,
  * including URL routing and handling Craft CMS events related to entries.
  *
- * @method static Plugin getInstance() Returns the instance of this plugin.
- * @method Settings getSettings() Returns the settings model for this plugin.
  * @author pse24
  * @copyright pse24
  * @license MIT
  */
 class Plugin extends BasePlugin
 {
-    private int $currentSiteId;
-    public string $schemaVersion = '1.0.0'; // Specifies the plugin's schema version
-    public bool $hasCpSettings = true; // Indicates whether the plugin has its own settings page in the Control Panel
-    public bool $hasCpSection = true; // Indicates whether the plugin adds its own section to the Control Panel
+    /** @var string The plugin's schema version */
+    public string $schemaVersion = '1.0.0';
 
-    /**
-     * Provides configuration for the plugin's components.
-     * Use this method to declare and configure any components required by the plugin.
-     *
-     * @return array The configuration array for components.
-     */
-    public static function config(): array
-    {
-        return [
-            'components' => [
-                // Component configurations go here...
-            ],
-        ];
-    }
+    /** @var bool Indicates if the plugin has its own settings page in the control panel */
+    public bool $hasCpSettings = true;
 
-    /**
-     * Holds the singleton instance of the plugin.
-     */
-    public static $plugin;
+    /** @var bool Indicates if the plugin has its own section in the control panel */
+    public bool $hasCpSection = true;
+
+    /** @var Plugin Holds the singleton instance of the plugin */
+    public static Plugin $plugin;
 
     /**
      * Initializes the plugin.
@@ -72,30 +59,24 @@ class Plugin extends BasePlugin
         parent::init();
         self::$plugin = $this;
 
-        // Register the service
-        $this->setComponents([
-            'entryDataService' => \pse\craftellinika\services\EntryDataService::class,
-        ]);
-
         // Register custom URL rules for the plugin
         Event::on(
             UrlManager::class,
             UrlManager::EVENT_REGISTER_CP_URL_RULES,
             function (RegisterUrlRulesEvent $event) {
                 $event->rules['ellinika'] = 'ellinika/ellinika/index';
-                $event->rules['ellinika/delete-entry'] = 'ellinika/ellinika/delete-entry';
+                $event->rules['ellinika/delete-field'] = 'ellinika/ellinika/delete-field';
+                $event->rules['actions/ellinika/ellinika/update-field-content'] = 'ellinika/ellinika/update-field-content';
             }
         );
 
-        // Attach event handlers for Craft CMS events, such as when entries are saved
         $this->attachEventHandlers();
     }
-
     /**
-     * Creates the settings model instance for the plugin.
-     * Override this method to provide a custom settings model for your plugin.
+     * Creates the settings model instance for the plugin
      *
-     * @return Model|null The settings model instance or null if none.
+     * @return Model|null settings model instance or null if creation fails
+     * @throws InvalidConfigException if configuration is invalid
      */
     protected function createSettingsModel(): ?Model
     {
@@ -107,6 +88,7 @@ class Plugin extends BasePlugin
      * This method is called to output the HTML for the plugin's settings page in the control panel.
      *
      * @return string|null The rendered settings HTML or null.
+     * @throws MissingComponentException if required component is missing
      */
     protected function settingsHtml(): ?string
     {
@@ -114,47 +96,46 @@ class Plugin extends BasePlugin
         $changeMessage = Craft::$app->getSession()->getFlash('entryChange', 'No changes found.', false);
 
         // Render the plugin settings template
-        return Craft::$app->view->renderTemplate('ellinika/_settings', [
-            'plugin' => $this,
-            'settings' => $this->getSettings(),
-            'changeMessage' => $changeMessage,
-        ]);
+        try {
+            return Craft::$app->view->renderTemplate('ellinika/_settings', [
+                'plugin' => $this,
+                'settings' => $this->getSettings(),
+                'changeMessage' => $changeMessage,
+            ]);
+        } catch (LoaderError|RuntimeError|SyntaxError|Exception $e) {
+            Craft::$app->getSession()->setError($e->getMessage());
+            return 'An error occurred while rendering the settings page.';
+        }
     }
 
-
     /**
-     * Attaches event handlers for the plugin.
-     * Use this method to connect to Craft CMS events, such as when entries are saved.
+     * Attaches event handlers for the plugin
+     * Method is connected to Craft CMS events:
+     * EVENT_AFTER_SAVE and EVENT_AFTER_DELETE
+     *
+     * @return void
      */
     private function attachEventHandlers(): void
     {
-        // Register event handler for the 'afterSave' event of Entry
+
         Event::on(
-            Entry::class,
-            Entry::EVENT_AFTER_SAVE,
+            Element::class,
+            Element::EVENT_AFTER_SAVE,
             function (ModelEvent $event) {
+                // Boolean to distinguish which language has been modified
                 static $changed = true;
-                // Get the saved entry object
-                /** @var Entry $entry */
+
+                /** @var Entry $entry that was saved */
                 $entry = $event->sender;
-                if($entry->getIsDraft() || $entry->getIsRevision()){
+
+                // check if entry is draft or revision. If true scip processing
+                if ($entry->getIsDraft() || $entry->getIsRevision()) {
                     return;
                 }
-
-                /*Craft::info("Log bei änderung Entry:
-                ist event neu ? {$event->isNew},
-                ist Neu für die Seite? : {$entry->isNewForSite}
-                Titel: {$entry->title},
-                ID: {$entry->id}, 
-                SeitenId: {$entry->siteId}, 
-                status: {$entry->status},
-                ist frisch ? : {$entry->getIsFresh()},
-                ist draft? {$entry->getIsDraft()},
-                ist revision?: {$entry->getIsRevision()}
-         
-                    ", 'custom-module');*/
+                // initialize new EntryHandler
                 $entryHandler = new EntryHandler($entry);
-                if($entry->getIsFresh()){
+                // check if entry is fresh
+                if ($entry->getIsFresh()) {
                     $entryHandler->processFreshEntry();
                 } else {
                     $entryHandler->processEntry($changed);
@@ -162,15 +143,49 @@ class Plugin extends BasePlugin
                 }
             }
         );
+        // Handle after an element is deleted
         Event::on(
-            Entry::class,
-            Entry::EVENT_AFTER_DELETE,
+            Element::class,
+            Element::EVENT_AFTER_DELETE,
             function ($event) {
-                //Delete all entries in dbs with the id of the entry
+                /** @var Entry $entry that was deleted */
                 $entry = $event->sender;
+                //Deletes all entries in plugin tables with the id of the entry
                 UpdateController::deleteEntryById($entry);
                 EllinikaController::deleteEntryById($entry);
             }
         );
+    }
+
+    /**
+     * Handle tasks after plugin is installed.
+     */
+    public function afterInstall(): void
+    {
+        parent::afterInstall();
+        // Run the migrations
+        $this->runMigrationsInBackground('up');
+    }
+
+    /**
+     * Handle tasks before plugin is uninstalled.
+     */
+    public function beforeUninstall(): void
+    {
+        // Run the migrations down
+        $this->runMigrationsInBackground('down');
+        parent::beforeUninstall();
+    }
+
+    /**
+     * Run migrations in the background.
+     *
+     * @param string $direction
+     */
+    protected function runMigrationsInBackground(string $direction)
+    {
+        $basePath = Craft::getAlias('@root');
+        $cmd = escapeshellcmd(PHP_BINDIR . '/php') . ' ' . escapeshellarg($basePath . '/craft') . ' migrate/' . $direction . ' --plugin=' . escapeshellarg($this->handle) . ' > /dev/null 2>&1 &';
+        exec($cmd);
     }
 }

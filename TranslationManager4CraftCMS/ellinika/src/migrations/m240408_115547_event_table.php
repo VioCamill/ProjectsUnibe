@@ -30,13 +30,17 @@ class m240408_115547_event_table extends Migration
     public function safeUp(): bool
     {
         // Creating table 'ellinika'
-        $this->createTable('{{%ellinika_db}}', [
-            'entry_id' => $this->integer()->notNull(),
-            'language_id' => $this->integer()->notNull(),
-            'text' => $this->string(),
-            'url' => $this->string(),
-            'changed'=> $this->boolean()->notNull(),
-        ]);
+       $this->createTable('{{%ellinika_ui}}', [
+        'entry_id' => $this->integer()->notNull(),
+        'language_id' => $this->integer()->notNull(),
+        'fieldHandle' => $this -> string(),
+        'title' => $this->string(),
+        'text' => $this->text(),
+        'url' => $this->string(),
+        'changed' => $this->boolean()->notNull(),
+        'author' => $this->string()->notNull(),
+        'dateCreated' => $this->dateTime()->notNull(),
+    ]);
 
         return true;
     }
@@ -51,7 +55,7 @@ class m240408_115547_event_table extends Migration
     public function safeDown(): bool
     {
         // Deleting table 'ellinika'
-        $this->dropTable('{{%ellinika_db}}');
+        $this->dropTable('{{%ellinika_ui}}');
 
         return true;
     }
