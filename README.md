@@ -6,7 +6,7 @@ This repository contains assignments and projects, that I was working with durin
 
 The project aims to minimise inconsistencies between the language versions of web platforms. For this purpose, a plugin for Craft CMS is being developed that allows users to view recently edited texts in the original language and their translations side by side, correct them if necessary and confirm the changes.<br>
 Technologies: Craft CMS, PHP 8 with Yii framework
-## Dashboard for AirBnB Dataset
+## AirBnB-Dataset Project
 The project involves the creation of a reporting tool for Airbnb accommodation based on Kaggle's Airbnb dataset. The tasks include data manipulation, data selection and data visualisation.<br>
 Technologies: Python, Libraires: NumPy and Pandas
 
