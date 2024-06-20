@@ -1,7 +1,7 @@
 # Projects University Bern
 
 This repository contains assignments and projects, that I was working with during my studies at the University Bern. 
-The projects AirBnB and Translation MAnager fro Craft CMS are still in progress. 
+
 ## Translation Manager for Craft CMS
 
 The project aims to minimise inconsistencies between the language versions of web platforms. For this purpose, a plugin for Craft CMS is being developed that allows users to view recently edited texts in the original language and their translations side by side, correct them if necessary and confirm the changes.<br>
